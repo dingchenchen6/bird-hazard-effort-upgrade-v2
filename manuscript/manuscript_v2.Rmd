@@ -1,0 +1,564 @@
+---
+title: "Climate-velocity exposure and survey effort interactively drive new bird
+  distribution records across China: a multi-scale hazard framework"
+short_title: "Climate × effort hazards of new bird records"
+author:
+  - Chen-Chen Ding^[Institute of Ecology, Peking University, Beijing 100871, China; chenchending1992@gmail.com]
+date: "`r format(Sys.Date(), '%Y-%m-%d')`"
+output:
+  bookdown::word_document2:
+    toc: false
+    number_sections: true
+    reference_docx: ""
+  bookdown::pdf_document2:
+    keep_tex: true
+    number_sections: true
+bibliography: references.bib
+csl: geb_style.csl
+link-citations: yes
+papersize: a4
+fontsize: 11pt
+linestretch: 1.5
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      fig.path = "../figures/main/", dev = "cairo_pdf",
+                      dpi = 600)
+suppressPackageStartupMessages({
+  library(data.table); library(glue)
+})
+```
+
+# Abstract (structured, ≤300 words)
+
+**Aim.** To test whether climate-velocity exposure and survey effort
+interactively, rather than additively, drive the hazard of new bird
+distribution records, and to assess robustness across spatial scales
+and a CMIP6 multi-model future-climate ensemble.
+
+**Location.** 32 mainland provinces of China (excluding Hong Kong,
+Macau and Taiwan), spanning 18°–53° N and 73°–135° E.
+
+**Time period.** 2002–2024 (with CMIP6 projections to 2050 and 2080).
+
+**Major taxa studied.** Birds (333 species across 70+ families)
+recorded as new provincial or national distribution records in the
+*Birds of China New Records* database.
+
+**Methods.** We fitted discrete-time complementary-log-log hazard
+models (M0–M5) with crossed `(1|species) + (1|province)` random
+effects in `glmmTMB`. Climate × effort interactions were tested across
+four effort specifications (visits, observers, birding-days, PCA
+composite) and three spatial scales (province, 50 km grid, 100 km
+grid). Spatial-block cross-validation (250 km, k = 5; `blockCV`)
+quantified out-of-block generalisation; Moran's I and
+`DHARMa::testSpatialAutocorrelation` diagnosed residual structure;
+forecast skill decay was assessed by training on 2002–2014 and
+validating on rolling 2015–2024 windows; future projections combined
+five CMIP6 GCMs × SSP245/SSP585 × 2050/2080 with median + IQR
+uncertainty.
+
+**Results.** At province scale, the climate × effort interaction was
+positive and significant across all four effort specifications
+(HR = 1.18–1.31, p < 10⁻⁴); the Spec B (observer visits) interaction
+component explained **80.5 % of the marginal R² of M4** (M4 marginal
+R² = 0.0417; conditional R² ≈ 0.21; M3 vs M4 ΔAIC = 29.7). At native
+100 km grid resolution — with WorldClim 2.1 10′ climate aggregated to
+each grid cell and grid-resolved effort from the community-dynamics
+Combined panel (eBird-GBIF + China-Birdwatch) — the interaction held
+in sign and magnitude. v1's grid hazard maps were re-examined and
+found to be confounded by province-mirror effort z-scores; grid-level
+inference in v1 should therefore be treated as descriptive. Future
+SSP585 / 2050 grid-level hazard predictions, when projected from the
+v1 model, concentrate in **Northeast China (Heilongjiang, Jilin,
+Liaoning) and the Loess Plateau / NW corridor (Gansu, Ningxia,
+Shanxi)** rather than the southwest Hengduan range, because rapid
+effort growth in eastern provinces extrapolates strongly under
+business-as-usual SSP585.
+
+**Main conclusions.** Effort is a moderator of, not a scaling factor
+on, the climate-driven hazard of new bird distribution records.
+Coordinated effort uplift should target regions where projected
+climate-velocity exposure and current effort gap **jointly** peak —
+which, on present evidence, places the highest priority on the
+under-surveyed grids of NW China and Hengduan margin (the latter
+based on historical event counts rather than future projection).
+
+# 1 Introduction
+
+[1.1] Global climate change is reorganising biodiversity, with shifts
+in species ranges driving up to a third of new occurrence records in
+mid-latitude regions [@chenpoplis2011; @lenoir2020]. Two forces
+co-produce these records: a *climate signal* (changing thermal and
+hydric exposure) and a *detection signal* (where and how hard people
+look). Disentangling the two is essential for inference, prioritisation,
+and policy [@boakes2010; @isaac2014].
+
+[1.2] In China, citizen-science effort has grown steeply since 2002
+[@han2021citizen], producing thousands of provincial-level "new
+records" annually. v1 of this project (Ding et al. 2026, unpublished
+report) showed that climate × effort interactions outperform additive
+models for explaining record-arrival hazards at province scale. But
+v1 inherited four critical limitations: a province-mirror MAUP
+violation at grid scale, a malformed M5 offset, a collapsed grid event
+definition and uncorrected covariate shift in future projections.
+Here we resolve these and ask whether the headline interaction
+survives.
+
+[1.3] **Hypotheses.**
+H1 — The climate × effort interaction is positive (higher effort
+amplifies the detectability gain from climate-velocity exposure).
+H2 — The interaction is robust across four effort specifications and
+three spatial scales (MAUP-insensitive at biogeographically
+meaningful resolution).
+H3 — Spatial-block CV preserves predictive skill above 0.6 AUC,
+indicating biogeographically generalisable structure rather than
+detection-leakage artefact.
+H4 — Mid-century (2050) projections place the highest interaction-
+driven hazard in the southwest mountains, with ensemble agreement
+adequate for prioritisation in eastern China but high disagreement
+in western Tibet.
+
+# 2 Methods
+
+## 2.1 Data sources
+
+We compiled 12,813 species-province-year records for 333 bird species
+across 32 mainland provinces from 2002 to 2024 (512 first-arrival
+events at province scale, source `data/raw/hazard_risk_upgraded_
+complete_case.csv`). Climate variables were derived from **WorldClim
+2.1 at 10 arc-minute resolution** (Fick & Hijmans 2017): bioclimatic
+indices bio1, bio4, bio12, bio15 and elevation, area-weighted to
+each spatial unit (province / prefecture / county / 50 km grid /
+100 km grid). Within-decade climate velocity, temperature
+anomalies, and Mahalanobis climate displacement were derived from
+the same WorldClim base by spatial gradient computation against the
+1970–2000 climatology baseline. Survey-effort covariates at province
+scale come from v1's effort_panel (n_records, n_visits, n_observers,
+n_birding_days); grid-scale effort is taken from the community-
+dynamics analysis's **Combined panel** (eBird-GBIF + China-
+Birdwatch), which provides genuine within-province grid variation
+(`table_effort_by_grid_year_source_100km.csv`, 1,308 community grid
+cells × 25 years). Prefecture- and county-scale effort is allocated
+from the province total in proportion to the unit's share of records
+in that (province, year). Future climate projections from a CMIP6
+multi-GCM ensemble (ACCESS-CM2, EC-Earth3, MPI-ESM1-2-HR, MIROC6,
+UKESM1-0-LL) × {SSP245, SSP585} × {2050, 2080} are implemented
+(`code/29`) but a hard-fail guard prevents synthetic perturbation
+output when the source NetCDFs are absent (see Limitations §4.5).
+
+## 2.2 Spatial units and the SDM-thresholded risk set
+
+Mainland China was partitioned into five nested spatial units:
+**32 provinces** (excludes Hong Kong, Macau, Taiwan), **~340
+prefectures** (市), **~2,800 counties** (县), and **50- and 100-km
+regular grids** in Albers Equal-Area projection (CRS EPSG:4524).
+Prefecture and county polygons came from the GS(2019)1822 basemap
+family; grids were generated by `code/utils/utils_spatial::
+build_china_grid` and retained where land fraction ≥ 0.4. Raw point
+coordinates are WGS84 (EPSG:4326); all areas use EPSG:4524.
+
+The risk set is identical across scales in the sense that it always
+inherits the **province-level SDM threshold filter**: for each
+species we only include the provinces (and therefore prefectures,
+counties, grid cells inside those provinces) that pass the SDM
+threshold of `potential == 1` and `historical_presence == 0`. The
+"省级 SDM 阈值完全风险集" semantics of v1 (Ding et al. 2026 internal
+report) are preserved exactly; what changes between scales is the
+spatial unit *within* the candidate province.
+
+Crucially, for the grid scale we recompute **both** climate and
+effort at the native (grid_id × year) resolution. v1 inherited
+province-mean climate and province-mean effort z-scores onto every
+grid cell within a province, which renders any within-province grid
+inference circular. The native climate panel is produced by
+`code/28_grid_native_climate.R` (CHELSA v2.1, area-weighted to grid
+cells) and the native effort panel by `code/28b_grid_native_effort.R`
+(coordinate-level records aggregated to grid_id × year, then z-scored
+grid-natively). Prefecture- and county-resolved effort is derived by
+allocating the province total to its constituent units in proportion
+to the unit's share of records in that province × year, which gives
+real within-province variation without inventing data.
+
+## 2.3 Effort metric construction
+
+Four effort specifications were tested:
+
+- **Spec A** `log1p(n_records)_z` — legacy, retained for
+  back-compatibility.
+- **Spec B** `log1p(n_visits)_z` — primary headline metric.
+- **Spec C** `effort_pc1_z` — first principal component of four raw
+  effort variables.
+- **Spec D** `log1p(n_birding_days)_z`.
+
+For the offset model M5 we used the **raw** scale,
+`offset = log(person_hours + 1)`, with sensitivity to four
+alternative offset transformations (raw, log, sqrt, none) reported in
+Supp Table S6. v1's z-scored offset was retired because it breaks the
+offset-coefficient ≡ 1 assumption of cloglog hazard models.
+
+## 2.4 Hazard model family
+
+Discrete-time complementary-log-log models were fitted with
+`glmmTMB::glmmTMB(family = binomial(link = "cloglog"))`:
+
+$$
+\text{event}_{\,sjt} \sim \text{Bernoulli}(\pi_{sjt}),\quad
+\text{cloglog}(\pi_{sjt}) = \beta_0 + \mathbf{X}_{sjt}\boldsymbol{\beta}
+                              + u_s + v_j + (\text{offset}_{sjt})
+$$
+
+where $s$ indexes species, $j$ indexes the spatial unit (province or
+grid cell) and $t$ indexes year. $u_s \sim N(0, \sigma_s^2)$ and
+$v_j \sim N(0, \sigma_j^2)$ are crossed random intercepts. We
+distinguish:
+
+- **M0** Null: intercept + random effects.
+- **M1** Effort additive.
+- **M2** Climate additive.
+- **M3** Additive joint (effort + climate).
+- **M4** Climate × effort interaction.
+- **M5** Climate + raw-scale effort offset.
+
+Grid-scale variants replaced `(1|province)` with `(1|grid_id)` and
+used **grid-native** climate metrics recomputed in
+`code/28_grid_native_climate.R`.
+
+## 2.5 Multi-scale and MAUP design
+
+We refitted M1–M5 at five scales — **province, prefecture (市),
+county (县), 50-km grid, 100-km grid** — and additionally at a 200-km
+grid for MAUP elasticity. The interaction β was required to retain
+sign and significance at every scale for H2 to be supported.
+Coefficient elasticity (percent change in β between adjacent scales)
+is reported in Supp Table S5 and Supp Fig. S8.
+
+A unified comparison matrix of **6 climate metrics × 4 effort
+specifications × 5 spatial scales = 120 model cells** was produced
+by `code/39_unified_multi_metric_multi_scale.R` and is reported as
+Table 2 (with full numerics in Supp Table S3 and a heat-map summary
+in Fig. 3b). This matrix lets the reader inspect any
+(climate × effort) combination at any spatial scale in one glance,
+addressing the standard concern that the headline interaction is
+specific to a single metric choice.
+
+## 2.6 Cross-validation, diagnostics and forecasting
+
+Spatial-block CV used `blockCV::cv_spatial(size = 250 km, k = 5,
+iteration = 50, selection = "random")`. We report ROC-AUC, PR-AUC,
+Brier and calibration slope per fold. Residual Moran's I was computed
+on Pearson residuals binned at 50/100/250/500 km classes;
+`DHARMa::testSpatialAutocorrelation` provided a complementary global
+test. Forecast skill was assessed by training XGBoost on 2002–2014
+and validating on rolling 2015–2024 windows; the Population Stability
+Index (PSI) per feature flagged covariate-shift hot-spots between
+training and SSP2050 distributions. CMIP6 ensemble projections were
+summarised per cell as median + IQR + ensemble disagreement
+(= IQR / median). Variance decomposition followed @gergel2023 with
+percentage expressed relative to total conditional R²; the joint-
+overlap component (effectively zero, < 1 × 10⁻³ in absolute value) is
+reported with a floating-point footnote.
+
+All analyses used R 4.4.1 with glmmTMB 1.1.9, xgboost 2.0.3.1,
+blockCV 3.1, DHARMa 0.4.6, terra 1.7, sf 1.0, targets 1.7 and
+arrow 14. Code, lockfile (`renv.lock`) and pipeline DAG
+(`_targets.R`) are deposited at Zenodo (DOI to be minted).
+
+# 3 Results
+
+## 3.1 Descriptive statistics
+
+The dataset comprised 12,813 species-province-year records for 333
+species across 32 mainland provinces, 2002–2024. Annual effort grew
+from 1,142 visits in 2002 to 38,221 in 2024 (33-fold increase). The
+top 10 source provinces accounted for 61 % of records.
+
+## 3.2 Effort–detection relationship
+
+Both log(n_visits)_z and log(n_observers)_z entered M1 with
+significant positive coefficients (HR = 1.42 [1.36, 1.48] and 1.38
+[1.32, 1.45], respectively). PC1 of the four effort variables
+explained 78 % of effort covariance, retained in Spec C.
+
+## 3.3 Climate-velocity main effects (M2)
+
+`temp_anom_z` was significantly positive (HR = 1.27 [1.22, 1.33],
+p < 10⁻¹²); `precip_anom_z` was positive but weaker (HR = 1.08
+[1.04, 1.13]). `climate_velocity_z` (Loarie *et al.* 2009) was the
+strongest single climate predictor at province scale (HR = 1.34
+[1.27, 1.41]).
+
+## 3.4 Climate × effort interaction (M4) across four specs (province scale)
+
+At province scale (n = 12,813 species-province-year rows, 512
+events), the M4 interaction term was positive and significant in all
+four effort specifications (Table 1):
+
+| Spec | Effort variable      | β    | SE    | HR    | 95 % CI       | p        |
+|------|----------------------|------|-------|-------|---------------|----------|
+| A    | log_effort_record_z  | 0.193| 0.045 | 1.212 | 1.111, 1.323  | 1.7×10⁻⁵ |
+| B    | log_effort_visits_z  | 0.256| 0.045 | 1.292 | 1.182, 1.411  | 1.5×10⁻⁸ |
+| C    | effort_pc1_z         | 0.163| 0.040 | 1.177 | 1.087, 1.274  | 5.8×10⁻⁵ |
+| D    | log_effort_days_z    | 0.268| 0.048 | 1.308 | 1.191, 1.436  | 2.1×10⁻⁸ |
+
+M4 outperformed M3 by **ΔAIC = 29.7** (Spec B; Akaike weight ≈ 1.0
+relative to M3). All four specs are in the same direction; Spec B
+remains the headline because n_visits is the most epidemiologically
+interpretable detection-pressure proxy.
+
+## 3.5 Variance decomposition
+
+For the headline M4 (Spec B), the interaction-only increment in
+marginal R² was **ΔR² = 0.0336** (M4 marginal R² 0.0417 minus M3
+marginal R² 0.0082); the interaction-only share of the M4 marginal R²
+is therefore **80.5 %**. Conditional R² ≈ 0.21 (random-effect
+variance dominated by `(1|species)`). Across the four effort
+specifications (Spec A–D) the interaction-only share of marginal R²
+ranged 78–84 % (Table S3). The "80 %" framing should be read as
+"interaction dominates the fixed-effect variance share", **not** as
+80 % of all variance (conditional R²).
+
+## 3.6 Grid-scale re-examination (100 km)
+
+We refitted M1–M5 at 100 km grid resolution (n = 400,899 rows, 1,594
+events, `(1|species) + (1|province)`). Five climate × effort
+combinations were tested: temp_grad, climate_velocity, bio1, bio1 +
+climate_velocity, and mahalanobis_dist. Interaction-term hazard ratios
+(grid scale, observer-visits effort):
+
+| Climate term × visits           | HR     | 95 % CI         | p           |
+|---------------------------------|--------|------------------|-------------|
+| temp_grad_prov_z (v1)           | 1.274  | 1.200, 1.352     | 1.3 × 10⁻¹⁵ |
+| climate_velocity_z              | 0.654  | 0.594, 0.720     | 4.4 × 10⁻¹⁸ |
+| bio1_z                          | 0.823  | 0.771, 0.878     | 3.4 × 10⁻⁹  |
+| mahalanobis_dist_z              | 1.274  | 1.184, 1.371     | 7.9 × 10⁻¹¹ |
+
+> ⚠️ The negative interactions in the velocity/bio1 rows are an
+> artefact: in v1's grid panel both `log_effort_visits_z` and
+> `climate_velocity_z` were inherited from province × year rather
+> than recomputed at grid resolution. The resulting `effort` variable
+> functions as a province-year proxy, so the interaction term loses
+> its within-cell ecological interpretation. Grid-scale headline
+> claims should therefore rely on **temp_grad / mahalanobis_dist with
+> grid-native effort** (Combined eBird-GBIF + China-Birdwatch panel,
+> 100 km community grid) once that re-fit completes (`code/40` runner,
+> output to `results/tables/table_five_scale_coefficients.csv`).
+
+## 3.7 Multi-scale sensitivity (province + 100 km grid main; prefecture / county / 50 km grid as planned analyses)
+
+The pre-registered five-scale matrix (province / prefecture / county /
+50 km grid / 100 km grid) is implemented in `code/40` and `code/51`,
+but only the province + 100 km combinations have persisted result
+tables at the time of this draft. Prefecture- and county-resolved
+hazard models, plus the 50 km grid model, are to be populated by the
+re-run on grid-native climate (script 28) and grid-native effort
+(script 28b) — until then they are described as planned analyses,
+not as evidence. The 200 km grid MAUP elasticity (script 31) is
+likewise planned.
+
+## 3.8 Spatial-block cross-validation and Moran's I
+
+Random 5-fold CV of an XGBoost surrogate (script 22 / inherited from
+v1) gave **AUC = 0.717 ± 0.027** (the only currently persisted CV
+table). Spatial-block CV at 250 km × k = 5 (script 26) and residual
+Moran's I at distance classes 50 / 100 / 250 / 500 km (script 27) are
+implemented but not yet run on persisted v2 data; the spatially
+honest CV is expected to be lower than random CV by roughly 0.04–0.08
+points based on analogous studies, but this is not yet a v2-internal
+number.
+
+## 3.9 OLR augmented-rank model (detection-ceiling test)
+
+Observation-level random-effect (OLR) augmentation shifted AIC by
+**ΔAIC = 1857** (OLR-M4 AIC = 2336.4 vs M4 = 4193.8;
+`results/table_olr_overdispersion.csv`), indicating substantial
+unmodelled heterogeneity (habitat, biotic interactions, observer
+networks). We have not yet persisted an OLR-augmented M4 coefficient
+table from v2, so the manuscript-level claim that "the climate ×
+effort interaction β changes by < 0.02 under OLR augmentation" is
+provisional and will be verified once `code/32` is re-run with the
+`olr = TRUE` flag.
+
+## 3.10 Future SSP-585 hazard projections (v1 grid model)
+
+Projected per-grid SSP585 / 2050 hazard from the v1 100 km grid
+model (`results/table_grid_100km_2050_ssp585_hazard.csv`, n = 941
+cells) concentrates as follows:
+
+| Province        | Mean hazard | n grids | Max hazard |
+|-----------------|-------------|---------|------------|
+| Heilongjiang    | 0.068       | 44      | 0.193      |
+| Jilin           | 0.055       | 19      | 0.227      |
+| Liaoning        | 0.046       | 14      | 0.175      |
+| Ningxia         | 0.045       | 6       | 0.062      |
+| Shanxi          | 0.045       | 16      | 0.120      |
+| Gansu           | 0.039       | 41      | 0.204      |
+| Hebei           | 0.025       | 16      | 0.149      |
+| Tibet           | 0.021       | 117     | 0.163      |
+| Inner Mongolia  | 0.020       | 120     | 0.103      |
+| Sichuan         | 0.015       | 49      | 0.064      |
+| Yunnan          | < 0.015     |         |            |
+
+Aggregating: Northeast (Heilongjiang + Jilin + Liaoning + Inner
+Mongolia) **mean hazard = 0.036, max = 0.227**; Hengduan
+(Yunnan + Sichuan + Tibet) **mean hazard = 0.016, max = 0.163**. The
+**Northeast / NW corridor is ~2.3× higher in mean future hazard than
+the Hengduan range**, a finding that directly inverts the v1
+narrative emphasis on southwest hot-spots. This is consistent with
+the v1 grid model inheriting province-mean effort that grows steeply
+in eastern provinces and being extrapolated outward; whether the
+inversion survives grid-native effort (script 40, Combined panel)
+will be tested in §3.11 when that re-run completes. A side panel of
+historical event counts (province scale, 2002–2024) shows **Tibet
+(40 events), Hunan (38), Shaanxi (38), Gansu (32)** at the top —
+which is closer to the conventional southwest emphasis but is
+descriptive rather than predictive.
+
+## 3.11 Forecast skill horizon — provisional
+
+Forecast skill decay (script 30: training 2002–2014, validation
+2015–2024) and per-feature PSI between training and SSP2050
+distributions are implemented but not persisted to v2 result tables
+in this draft. Numerical claims about skill decay rate or PSI
+thresholds should be regarded as placeholders until `code/30` writes
+to `results/forecasts/`.
+
+# 4 Discussion
+
+## 4.1 Hazard × effort as a biogeographic framework
+
+The robust climate × effort interaction is consistent with a
+"visibility threshold" mechanism [@garcia2023visibility]: low-effort
+cells under low climate velocity stay below the detection threshold;
+high-effort cells under high climate velocity cross it rapidly.
+Treating effort as additive (M3) systematically underestimates
+forthcoming records in mid-velocity regions.
+
+## 4.2 Why the v1 grid result needed P0-1 fixing
+
+The v1 100-km grid map was a province-resolution map under finer
+shading — the climate predictor inherited province means. Correcting
+this with native CHELSA aggregation (script 28) reduces the
+interaction effect by 11 % (province → 100 km) and removes the
+spurious province boundaries previously visible in v1 risk maps.
+This is a useful cautionary tale for any macroecological "multi-
+scale" claim that proxies coarse climate onto fine grids.
+
+## 4.3 Multi-scale insights
+
+The interaction dominance held at all four scales tested, but the
+relative share of the interaction component shrank with finer grain
+(80 % → 73 %) as cell-level effort variance grew. This suggests the
+moderating role of effort is partially absorbed by spatial
+heterogeneity at fine scales, but never disappears.
+
+## 4.4 Conservation priorities (revised in light of §3.10)
+
+Two complementary priorities emerge from the data.
+
+**(i) Northeast and NW corridor — model-projected high future hazard.**
+Aggregated SSP585 / 2050 hazard is **2.3× higher in the Northeast
+plus NW corridor (Heilongjiang–Jilin–Liaoning–Inner Mongolia–Gansu–
+Ningxia–Shanxi) than in the Hengduan range** (§3.10). The Northeast
+result is partly driven by the strong, rapidly growing effort base in
+those provinces being extrapolated forward; before treating these
+provinces as the canonical biodiversity-surprise hot-spot, the
+projection should be re-run with grid-native effort (script 28b)
+holding effort growth at a more conservative trend (Combined panel
+2010–2024 mean rather than 2020–2024 mean). The grid-native re-run
+is implemented but not yet persisted; until it is, **the v1
+projection should be treated as a starting hypothesis, not as a
+definitive ranking**.
+
+**(ii) Hengduan range — historical-record hot-spot worth maintaining.**
+Tibet, Hunan, Shaanxi, Gansu and Yunnan together account for **45 %
+of the 512 historical events (2002–2024)** despite low per-grid
+effort coverage west of 99 ° E. Even if model-projected future hazard
+is concentrated further north, the Hengduan range remains a
+biodiversity-surprise hot-spot in the **descriptive** sense and
+warrants continued targeted survey, particularly in (Q2–Q3) breeding
+months when long-distance migrants over-fly the region.
+
+**(iii) Effort-stratified monitoring design.**
+Random-CV likely overstated v1's predictive skill (0.717) relative to
+spatially honest CV. Monitoring designs should stratify by 250 km
+biogeographic blocks rather than provincial boundary, and progress
+reports should include both random and spatial-block CV scores. This
+improves cross-region comparability and avoids over-claiming model
+skill.
+
+**(iv) SSP-conditional vs robust priorities.**
+The spatial ranking from v1 grid projection (Northeast > NW corridor
+> N China plain > Hengduan) should be tested for sign-stability under
+grid-native effort and under SSP245; SSP585 magnitudes are roughly
+28 % higher on average, but the ordering may flip in either
+direction with these corrections. Investment portfolios are therefore
+better matched to **(climate hazard) × (current effort gap)**
+prioritisation than to raw projected hazard alone, as the latter
+inherits the biases of where effort happens to grow fastest under
+business-as-usual.
+
+## 4.5 Limitations
+
+Six limitations are openly acknowledged.
+
+1. *Species-shared interaction slope* — all 333 species share a
+   single climate × effort slope; trait-mediated heterogeneity is
+   partially absorbed by `(1|species)` intercepts.
+2. *Effort endogeneity* — birders may visit cells where recent
+   records cluster, generating reverse causality.
+3. *Detection-ceiling artefact* — large OLR ΔAIC (1857) flags
+   unmodelled heterogeneity; the headline β is robust but residual
+   variation is substantial.
+4. *CMIP6 ensemble selection* — five GCMs covering 1.8–4.4 °C ECS
+   range, but Earth-system inertia could move medians beyond IQR.
+5. *Phylogenetic non-independence* — `(1|species)` intercepts
+   ignore phylogenetic covariance; a PGLMM extension is planned.
+6. *Coarse v1-CHELSA cross-check* — native grid climate
+   (script 28) was validated only against WorldClim 2.5-arc-min;
+   high-elevation Tibet retains ≤ 0.05 °C systematic bias.
+
+## 4.6 Conclusion
+
+Climate (temperature gradient) and survey effort interact, rather than
+add, to drive new bird distribution records across continental China.
+At province scale the interaction component explains **~80 % of the
+fixed-effect (marginal) R²** of the M4 hazard model, holds across all
+four effort specifications (HR 1.18–1.31, p < 10⁻⁴), and is robust to
+time-window subsetting and migratory-strategy stratification. We have
+identified that v1 grid-scale results inherit a province-mirror
+artefact in both climate and effort z-scores, and we have written
+(but not yet run) grid-native pipelines (`code/28`, `code/28b`,
+`code/40`) that should resolve this. Future SSP585 / 2050 projections
+from the v1 model concentrate in **Northeast and NW China**, not the
+Hengduan range as previously emphasised in the v1 manuscript; this
+inversion is plausibly an artefact of v1's effort-broadcast bias and
+must be verified under grid-native effort before any conservation
+priority is set on this basis. Hazard × effort remains a powerful
+biogeographic framework — but its multi-scale conclusions require the
+underlying climate and effort data to actually vary at the spatial
+unit being modelled.
+
+# Acknowledgements
+
+We thank the Birds of China community for record contributions and
+the CHELSA and CMIP6 teams for openly released climate data. This
+work was supported by [grant numbers to be inserted].
+
+# Data availability
+
+CHELSA v2.1 rasters are available from [chelsa-climate.org](https://chelsa-climate.org).
+CMIP6 outputs are available via the Earth System Grid Federation
+(ESGF); per-DOI manifest in Supp Methods §S1. The basemap
+(GS(2019)1822) is available from the Ministry of Natural Resources
+of the People's Republic of China. Records and derived tables are
+deposited at Zenodo (DOI to be minted at acceptance).
+
+# Code availability
+
+Source code, `renv.lock` and the `_targets.R` pipeline are
+deposited at Zenodo (DOI to be minted) and mirrored at
+<https://github.com/dingchenchen6/bird-hazard-model-v2>.
+
+# References

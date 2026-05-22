@@ -1,0 +1,67 @@
+---
+title: "Supplementary Figures S1–S15"
+author: "Ding et al."
+output:
+  bookdown::word_document2: { number_sections: false, toc: true }
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE,
+                      out.width = "100%", dpi = 600)
+fig <- function(n, caption) {
+  path <- file.path("..", "..", "figures", "supplementary",
+                     sprintf("figS%d_*.png", n))
+  match <- Sys.glob(path)
+  if (length(match) == 0L) {
+    knitr::asis_output(sprintf("> *Fig S%d not yet generated — run pipeline.*\n\n", n))
+  } else {
+    knitr::include_graphics(match[1])
+    knitr::asis_output(sprintf("\n\n**Fig. S%d.** %s\n\n", n, caption))
+  }
+}
+```
+
+# Fig. S1 — DHARMa global tests
+`r fig(1, "Uniformity, dispersion, outlier and zero-inflation tests for M4.")`
+
+# Fig. S2 — DHARMa spatial residual map
+`r fig(2, "Pearson residuals aggregated to province polygons.")`
+
+# Fig. S3 — VIF heatmap
+`r fig(3, "Variance inflation factors of M4 fixed-effects covariates.")`
+
+# Fig. S4 — Partial-dependence (top 8 features)
+`r fig(4, "Marginal effect of each top-8 feature, XGBoost surrogate.")`
+
+# Fig. S5 — SHAP summary (beeswarm + dependence)
+`r fig(5, "SHAP-value beeswarm showing global feature contribution and direction.")`
+
+# Fig. S6 — PR-AUC by fold
+`r fig(6, "PR-AUC per spatial-block fold.")`
+
+# Fig. S7 — Reliability per fold
+`r fig(7, "Reliability (calibration) curve per fold.")`
+
+# Fig. S8 — MAUP elasticity
+`r fig(8, "Climate × effort interaction β across four scales.")`
+
+# Fig. S9 — Offset sensitivity
+`r fig(9, "Climate / effort coefficients across five offset specifications.")`
+
+# Fig. S10 — Grid event redefinition (v1 → v2)
+`r fig(10, "Raw event count vs redefined event count by grid resolution.")`
+
+# Fig. S11 — CMIP6 per-model maps
+`r fig(11, "SSP585 / 2050 hazard score per GCM (5 panels).")`
+
+# Fig. S12 — Covariate-shift PSI
+`r fig(12, "PSI per feature for training vs 2024 and training vs SSP2050.")`
+
+# Fig. S13 — Effort panel coverage by province
+`r fig(13, "Years with non-zero effort per province, 2002–2024.")`
+
+# Fig. S14 — Species accumulation curve
+`r fig(14, "Cumulative count of species recorded as new distribution at province scale.")`
+
+# Fig. S15 — Phylogenetic effort heatmap
+`r fig(15, "Top-30 genus × province event-count heatmap.")`
