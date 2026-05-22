@@ -1,0 +1,106 @@
+---
+title: "Supplementary Tables S1–S10"
+author: "Ding et al."
+output:
+  bookdown::word_document2: { number_sections: false, toc: true }
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+suppressPackageStartupMessages({
+  library(data.table); library(knitr); library(here); library(arrow)
+})
+src <- function(path) here::here("..", path)  # relative to manuscript/supplementary
+read_safe <- function(path) {
+  full <- src(path)
+  if (!file.exists(full)) return(NULL)
+  if (tools::file_ext(full) == "parquet") return(arrow::read_parquet(full))
+  fread(full, encoding = "UTF-8")
+}
+```
+
+# Table S1 — Species list with first-detection year
+
+```{r}
+dt <- read_safe("data/raw/hazard_risk_upgraded_complete_case.csv")
+if (!is.null(dt) && "event" %in% names(dt)) {
+  s1 <- dt[event == 1, .(first_year = min(year, na.rm = TRUE),
+                          n_events = .N),
+            by = species][order(first_year, species)]
+  knitr::kable(head(s1, 50))
+} else { knitr::kable(data.frame(note = "Risk set unavailable")) }
+```
+
+# Table S2 — OLR augmentation of M4
+
+```{r}
+ol <- read_safe("results/diagnostics/table_olr_augmented_M4.csv")
+if (!is.null(ol)) knitr::kable(ol) else
+  knitr::kable(data.frame(note = "Run extended diagnostics in script 27."))
+```
+
+# Table S3 — Full coefficient tables M1–M5 (province scale)
+
+```{r}
+co <- read_safe("results/sensitivity/table_offset_coefficients.csv")
+if (!is.null(co)) knitr::kable(co) else
+  knitr::kable(data.frame(note = "Run script 32 to populate."))
+```
+
+# Table S4 — Random-effect variance components
+
+```{r}
+ve <- read_safe("results/diagnostics/table_random_effects_variance.csv")
+if (!is.null(ve)) knitr::kable(ve) else
+  knitr::kable(data.frame(note = "Extracted from M0–M5 fits in script 17/32."))
+```
+
+# Table S5 — MAUP elasticity
+
+```{r}
+ma <- read_safe("results/sensitivity/table_maup_elasticity.csv")
+if (!is.null(ma)) knitr::kable(ma) else
+  knitr::kable(data.frame(note = "Run script 31."))
+```
+
+# Table S6 — Offset sensitivity (raw / log / sqrt / z / none)
+
+```{r}
+os <- read_safe("results/sensitivity/table_offset_reformulation.csv")
+if (!is.null(os)) knitr::kable(os) else
+  knitr::kable(data.frame(note = "Run script 32."))
+```
+
+# Table S7 — Spatial-block CV per-fold metrics
+
+```{r}
+cv <- read_safe("results/diagnostics/table_spatial_block_cv.csv")
+if (!is.null(cv)) knitr::kable(cv) else
+  knitr::kable(data.frame(note = "Run script 26."))
+```
+
+# Table S8 — Moran's I at distance classes
+
+```{r}
+mi <- read_safe("results/diagnostics/table_morans_i_residuals.csv")
+if (!is.null(mi)) knitr::kable(mi) else
+  knitr::kable(data.frame(note = "Run script 27."))
+```
+
+# Table S9 — CMIP6 model list, grid centres, native resolution
+
+| GCM | Native lat × lon | Atmosphere grid | ECS (°C) | SSP245 nodes | SSP585 nodes |
+|-----|-----------------|-----------------|----------|--------------|--------------|
+| ACCESS-CM2 | 192 × 144 | N96 | 4.7 | TBD | TBD |
+| EC-Earth3 | 512 × 256 | T255 | 4.3 | TBD | TBD |
+| MPI-ESM1-2-HR | 384 × 192 | T127 | 2.9 | TBD | TBD |
+| MIROC6 | 256 × 128 | T85 | 2.6 | TBD | TBD |
+| UKESM1-0-LL | 192 × 144 | N96 | 5.3 | TBD | TBD |
+
+# Table S10 — PSI per feature (training vs SSP2050)
+
+```{r}
+psi <- read_safe("results/forecasts/table_feature_psi.csv")
+if (!is.null(psi)) knitr::kable(psi) else
+  knitr::kable(data.frame(note = "Run scripts 29 + 30 to populate."))
+```

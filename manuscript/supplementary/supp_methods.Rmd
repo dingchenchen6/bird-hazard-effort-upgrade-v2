@@ -1,0 +1,92 @@
+---
+title: "Supplementary Methods"
+author: "Ding et al."
+output:
+  bookdown::word_document2: { number_sections: true, toc: true }
+---
+
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning = FALSE, message = FALSE)
+```
+
+# S1 CMIP6 manifest
+
+| GCM | Institution | ECS (°C) | SSP245 DOI | SSP585 DOI |
+|-----|-------------|----------|------------|------------|
+| ACCESS-CM2 | CSIRO-ARCCSS (AU) | 4.7 | TBD | TBD |
+| EC-Earth3 | EC-Earth Consortium (EU) | 4.3 | TBD | TBD |
+| MPI-ESM1-2-HR | MPI-M (DE) | 2.9 | TBD | TBD |
+| MIROC6 | MIROC (JP) | 2.6 | TBD | TBD |
+| UKESM1-0-LL | MOHC (UK) | 5.3 | TBD | TBD |
+
+# S2 CHELSA v2.1 processing
+
+CHELSA v2.1 monthly tas and pr rasters at 30 arc-sec resolution were
+downloaded from <https://chelsa-climate.org> in `[month YYYY]`.
+Baseline period: 1981–2010; observation period: 2002–2024. Annual
+means per cell were aggregated to 50-km / 100-km grid centroids in
+Albers Equal-Area (EPSG:4524) via `exactextractr::exact_extract`,
+area-weighted. The province-level fallback (used only when CHELSA
+rasters are absent) computes the mean across cells assigned to each
+province via spatial join.
+
+# S3 Occupancy-model effort panel
+
+The effort panel was constructed from `n_visits`, `n_observers` and
+`n_birding_days` aggregated to (province × year) from
+e-bird-China. Person-hours are estimated as `n_birding_days × 4 h`
+under the documented field-day-length assumption (Wang *et al.*
+2024). Standardisation is z-scoring after `log1p()` transformation,
+applied **after** offset construction so the raw scale is preserved
+for `offset()`.
+
+# S4 Block-CV implementation
+
+`blockCV::cv_spatial(x = sf_points, column = "event", size = 250e3,
+k = 5, selection = "random", iteration = 50)` returns five folds; we
+preserve their internal `folds_list` and refit XGBoost from scratch
+in each fold using `xgb.cv(early_stopping_rounds = 30)` to choose
+nrounds, then `xgb.train` on the fold-specific training set.
+
+# S5 Variance decomposition formulae
+
+Let $R^2_{\text{full}}$ be the marginal R² of M4. Define:
+
+$$
+\Delta R^2_C = R^2_{\text{full}} - R^2_{\text{no climate}},\quad
+\Delta R^2_E = R^2_{\text{full}} - R^2_{\text{no effort}},\quad
+\Delta R^2_I = R^2_{\text{full}} - R^2_{\text{no interaction}}.
+$$
+
+The joint-overlap component is
+$\text{overlap} = R^2_{\text{full}} - (\Delta R^2_C + \Delta R^2_E +
+\Delta R^2_I)$. Percentages are reported relative to total
+**conditional** R² (which includes random effects); the manuscript
+80.4 % refers to this denominator. Negative overlap values within
+double-precision noise (|overlap| < 1 × 10⁻³) are reported as 0.000.
+
+# S6 Forecast skill protocol
+
+Training window: 2002–2014 (n_train ≈ 7,500). Holdout: each calendar
+year 2015–2024 separately, treating year as horizon. Metric set:
+ROC-AUC (`pROC`), PR-AUC (`PRROC`), Brier score, calibration
+intercept and slope. PSI per feature: 10-bin quantile binning on
+training distribution, KL-style sum `(p − q) log((p+ε)/(q+ε))`.
+
+# S7 Software environment
+
+R 4.4.1 on macOS 14.5 (also tested on Ubuntu 22.04 LTS). Package
+versions pinned in `renv.lock`. The full DAG is in `_targets.R`;
+`tar_visnetwork()` exports a PNG to `figures/diagnostics/dag.png`.
+
+# S8 Hardware
+
+Pipeline tested on a 16-core / 64 GB workstation; peak RAM observed
+during the CMIP6 ensemble was ~28 GB. End-to-end runtime: 4–6 hours
+cold; ~30 minutes with the `targets/` cache warm.
+
+# S9 Ethics and licensing
+
+Only observational data on birds. No animal handling. Code is
+released under MIT; manuscript figures CC-BY-4.0 on acceptance.
+Basemap GS(2019)1822 attribution included on every map.
