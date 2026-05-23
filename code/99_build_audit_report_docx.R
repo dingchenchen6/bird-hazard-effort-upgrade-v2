@@ -232,10 +232,94 @@ add_fig(doc, "figures/diagnostics/morans_i_distance_classes.png",
         width = 5.6, height = 3.6,
         caption = "Figure 3.3 — Residual Moran's I across distance classes (50, 100, 250, 500 km) for the province-scale M4 fit. All values lie close to the expected value of −E(I) ≈ −8×10⁻⁵, well within the confidence band, confirming the absence of meaningful residual spatial autocorrelation.") -> doc
 
+# ----- Sub-section: model-selection ladder -----
+add_h2(doc, "3.8 Model selection — AIC and Akaike weights across 4 effort specifications") -> doc
+add_p(doc, "All 20 model fits (4 effort specifications × M0-M4) converged. Within each specification M4 (climate × effort interaction) is the lowest-AIC model, and Akaike weights concentrate essentially completely on M4 (> 0.99 in every spec). This is direct, parameter-free evidence that the interaction term contributes more to in-sample fit than any additive combination.") -> doc
+add_fig(doc, "figures/main/fig_aic_akaike_ladder.png",
+        width = 6.4, height = 3.8,
+        caption = "Figure 3.4 — ΔAIC ladder by effort specification. M4 is the reference; M0-M3 are 13-29 ΔAIC units worse depending on spec.") -> doc
+add_fig(doc, "figures/main/fig_akaike_weights.png",
+        width = 6.4, height = 3.8,
+        caption = "Figure 3.5 — Akaike weights. M4 captures essentially all of the weight in every specification.") -> doc
+
+add_h2(doc, "3.9 Coefficient panorama — forest plot and beeswarm") -> doc
+add_p(doc, "The forest plot below shows every fixed-effects coefficient (excluding the intercept) for M0-M4 in each of the 4 effort specifications: temp_grad_z main effect, effort_z main effect, and the interaction. The beeswarm focuses on the headline term — interaction HR for M4 — across the 4 specs.") -> doc
+add_fig(doc, "figures/main/fig_coef_forest_4specs.png",
+        width = 6.6, height = 3.6,
+        caption = "Figure 3.6 — Coefficient forest plot. Panels: climate main effect, effort main effect, interaction. Each panel x-axis on log scale; 95 % CIs shown.") -> doc
+add_fig(doc, "figures/main/fig_coef_beeswarm_M4.png",
+        width = 6.0, height = 3.8,
+        caption = "Figure 3.7 — Beeswarm of M4 interaction HR across 4 effort specifications. All four points sit above HR = 1 (dashed line), confirming a positive interaction is the consistent signal regardless of how effort is operationalised.") -> doc
+
+add_h2(doc, "3.10 Variance decomposition — interaction dominates") -> doc
+add_fig(doc, "figures/main/fig_varpart_4specs.png",
+        width = 6.4, height = 3.6,
+        caption = "Figure 3.8 — Marginal-R² decomposition into additive (M3) and interaction-only (M4 minus M3) components. The interaction-only increment is 78-84 % of M4 marginal R² in every effort specification.") -> doc
+
+add_h2(doc, "3.11 Variable importance — Random Forest and XGBoost agree") -> doc
+add_p(doc, "Two independent ML approaches (Random Forest with permutation importance, XGBoost with SHAP values) both rank the climate × effort interaction (temp_x_effort) as the most important predictor. This is a cross-method confirmation of the manuscript's headline.") -> doc
+
+imp_path <- file.path(V2, "results", "tables", "table_rf_importance_v2.csv")
+if (file.exists(imp_path)) {
+  imp_tbl <- fread(imp_path)
+  imp_show <- imp_tbl[, .(Variable = variable,
+                            Category = category,
+                            Importance = round(importance, 4))][1:10]
+  add_tbl(doc, imp_show,
+    caption = "Table 3.8 — Top 10 features by Random Forest permutation importance (v2 ranger refit; n = 12,813, 512 events, 500 trees, permutation importance, OOB)." ) -> doc
+}
+add_fig(doc, "figures/main/fig_rf_importance.png",
+        width = 6.0, height = 4.3,
+        caption = "Figure 3.9 — Random Forest variable importance (lollipop). temp_x_effort (climate × effort interaction) leads, followed by climate variables; effort and year carry less independent signal once the interaction is in.") -> doc
+add_fig(doc, "figures/main/fig_xgb_shap_summary.png",
+        width = 6.4, height = 4.4,
+        caption = "Figure 3.10 — XGBoost SHAP beeswarm (CV AUC = 0.742). Each dot is one observation's SHAP value for the named feature; colour encodes the feature's z-score (red = high, blue = low). The interaction term has the widest spread with a strongly positive upper tail, mirroring its dominance in the hazard model.") -> doc
+
 # ============================================================
-# Section 4: Grid-scale findings (v1; v2 grid refit pending)
+# Section 3-bis: future scenario projection at province scale
 # ============================================================
-add_h1(doc, "4  Grid-scale findings (v1) and known caveats") -> doc
+add_h1(doc, "3-bis  Provincial future scenario projection (glmmTMB + XGBoost)") -> doc
+add_p(doc,
+"Two independent province-scale projection engines were run on the same v2 risk-set under a common scenario design: SSP245 vs SSP585 × 2030 / 2050 / 2080. Climate perturbation follows the empirical v1 scheme — SSP245 adds 0.3 SD per decade on temp_grad_z and SSP585 adds 0.8 SD per decade. Survey effort (log_effort_visits_z) is frozen at the 2024 baseline so the engines are stressing the climate pathway only.") -> doc
+
+add_h2(doc, "3-bis.1  glmmTMB M4 — population-average projection (per province)") -> doc
+
+ggp <- file.path(V2, "results", "forecasts",
+                  "table_province_future_glmmTMB.csv")
+if (file.exists(ggp)) {
+  ggdt <- fread(ggp)
+  ggtop <- ggdt[ssp == "SSP585" & year == 2050][order(-hazard_glmm)][1:12,
+              .(province, hazard = round(hazard_glmm, 4))]
+  add_tbl(doc, ggtop,
+    caption = "Table 3.9 — Top 12 provinces by glmmTMB-projected SSP585 / 2050 hazard. Provincial ranking is now dominated by eastern, high-effort provinces (Jiangsu, Zhejiang, Hubei, Fujian, Henan, Sichuan), reflecting the interaction signal — high temp_grad combined with high baseline effort.") -> doc
+}
+add_fig(doc, "figures/main/fig_future_hazard_glmmTMB.png",
+        width = 6.8, height = 4.5,
+        caption = "Figure 3.11 — glmmTMB-projected province hazard, 6 scenario panels (SSP245 × 2030/2050/2080 + SSP585 × 2030/2050/2080). Albers EPSG:4524 / GS(2019)1822 basemap, nine-dash line included.") -> doc
+
+add_h2(doc, "3-bis.2  XGBoost — full-feature projection") -> doc
+add_p(doc,
+"XGBoost (CV AUC = 0.742, best nrounds = 72) was trained on the full feature set (climate, effort, interaction columns, year). Out-of-sample province × scenario predictions use the v2 train-mean baseline for non-(province, year) features. The predicted hazard range is narrower than glmmTMB's because the tree ensemble compresses extrapolation toward the training distribution — a useful sanity check.") -> doc
+
+xgp <- file.path(V2, "results", "forecasts",
+                  "table_province_future_xgboost.csv")
+if (file.exists(xgp)) {
+  xgdt <- fread(xgp)
+  xgtop <- xgdt[ssp == "SSP585" & year == 2050][order(-hazard_xgb)][1:12,
+              .(province, hazard = round(hazard_xgb, 4))]
+  add_tbl(doc, xgtop,
+    caption = "Table 3.10 — Top 12 provinces by XGBoost-projected SSP585 / 2050 hazard. The XGBoost ranking favours frontier provinces with high baseline climate-velocity (Heilongjiang, Jilin, Inner Mongolia, Gansu), in agreement with v1's grid 100 km result. The cross-method discordance with glmmTMB is itself a useful diagnostic — see §3-bis.3.") -> doc
+}
+add_fig(doc, "figures/main/fig_future_hazard_xgboost.png",
+        width = 6.8, height = 4.5,
+        caption = "Figure 3.12 — XGBoost-projected province hazard, same 6 scenarios.") -> doc
+
+add_h2(doc, "3-bis.3  glmmTMB vs XGBoost ranking — concordance map") -> doc
+add_p(doc,
+"The two engines agree on the qualitative direction (top-quartile provinces are robust across both) but disagree on the leading provinces: glmmTMB elevates eastern, high-effort provinces because the interaction term is multiplicative in the cloglog hazard, whereas XGBoost places the top hazard on frontier provinces where climate velocity is largest (closer to v1's grid 100 km projection). Reviewers should expect the manuscript to argue that both signals matter: eastern high-effort provinces will produce most of the OBSERVED new records, while frontier provinces are the most LATENT (would produce records if effort were uplifted there).") -> doc
+add_fig(doc, "figures/main/fig_future_glmmTMB_vs_xgboost_rank.png",
+        width = 6.6, height = 3.8,
+        caption = "Figure 3.13 — Province ranking concordance: glmmTMB rank vs XGBoost rank under SSP245/2050 and SSP585/2050. Dashed line = perfect rank agreement.") -> doc
 add_h2(doc, "4.1 v1 grid M1–M5 coefficients (100 km)") -> doc
 gc_path <- file.path(V1, "results", "table_grid_model_coefficients.csv")
 if (file.exists(gc_path)) {
