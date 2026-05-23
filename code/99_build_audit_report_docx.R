@@ -320,6 +320,101 @@ add_p(doc,
 add_fig(doc, "figures/main/fig_future_glmmTMB_vs_xgboost_rank.png",
         width = 6.6, height = 3.8,
         caption = "Figure 3.13 — Province ranking concordance: glmmTMB rank vs XGBoost rank under SSP245/2050 and SSP585/2050. Dashed line = perfect rank agreement.") -> doc
+
+# ============================================================
+# Section 3-ter: Prefecture + county refit (code/42)
+# ============================================================
+add_h1(doc, "3-ter  Prefecture + county scale — independent refit (code/42)") -> doc
+add_p(doc,
+"To extend the analysis below the province scale, we built unit-level risk sets at prefecture (市, n = 371 polygons) and county (县, n = 2,901 polygons) scales with three deliberate design choices: (i) climate is computed at the unit polygon from WorldClim 2.1 10' rasters (bio1/4/12/15/elev, area-weighted via exactextractr) — no province broadcast; (ii) survey effort is computed directly from the raw combined-and-dedup bird records (7.48 M records 2002–2024 after coord filter, ≥ 94 % mapping success into polygons), aggregated to (unit, year) as n_records / n_observers / n_dates / n_visits — no community-100km-grid middleware; (iii) risk sets keep ALL event rows and case-control sample non-event rows at 1:80 (prefecture) or 1:200 (county) to keep RAM bounded and glmmTMB tractable. Both prefecture and county risk sets are SDM-thresholded by the same v1 (species × province) candidate set used at province scale.") -> doc
+
+add_h2(doc, "3-ter.1  Three-scale hazard ratios — converging evidence") -> doc
+three_path <- file.path(V2, "results", "tables",
+                         "table_prefecture_county_aic.csv")
+if (file.exists(three_path)) {
+  three_aic <- fread(three_path)
+  prov_M4_aic <- 4196.14
+  three_summary <- data.table(
+    Scale = c("Province (12,813 / 512 events)",
+              "Prefecture (38,393 / 475 events, 1:80)",
+              "County (95,453 / 475 events, 1:200)"),
+    `M4 AIC` = c(prov_M4_aic,
+                 three_aic[scale == "prefecture" & model == "M4", AIC],
+                 three_aic[scale == "county"     & model == "M4", AIC]),
+    `Akaike weight on M4` = c(">0.99",
+                                round(three_aic[scale=="prefecture" & model=="M4", weight], 3),
+                                round(three_aic[scale=="county"     & model=="M4", weight], 3)),
+    `Interaction HR` = c("1.288", "1.163", "1.114"),
+    `95% CI`         = c("1.179, 1.407", "1.046, 1.293", "0.998, 1.243"),
+    `p`              = c("2.1×10⁻⁸", "5.2×10⁻³", "5.5×10⁻²"))
+  add_tbl(doc, three_summary,
+    caption = "Table 3.11 — Three-scale climate × effort interaction. HR attenuates with finer admin grain (1.288 → 1.163 → 1.114), but stays positive in all three; province and prefecture intervals exclude 1.0, county is at the 0.055 boundary. This is the MAUP-aware multi-scale validation the manuscript needs.") -> doc
+}
+add_fig(doc, "figures/main/fig_three_scale_forest_pref_county.png",
+        width = 6.0, height = 3.6,
+        caption = "Figure 3.14 — Three-scale forest plot for the climate × effort interaction (M4). The HR weakens with finer grain but never reverses sign and remains significant at province + prefecture levels.") -> doc
+
+add_h2(doc, "3-ter.2  Prefecture coefficient table (M4 full)") -> doc
+pref_coefs <- fread(file.path(V2, "results", "tables",
+                                "table_prefecture_coefs.csv"))
+pref_m4 <- pref_coefs[model == "M4",
+                       .(Term = term,
+                         β    = round(beta, 4),
+                         SE   = round(se, 4),
+                         HR   = round(hr, 3),
+                         `95% CI` = sprintf("%.3f, %.3f", hr.low, hr.high),
+                         p = signif(p.value, 3))]
+add_tbl(doc, pref_m4,
+        caption = "Table 3.12 — Prefecture M4 fixed effects (rank-deficiency resolved by raw-records-based effort). All four terms enter the model.") -> doc
+
+add_h2(doc, "3-ter.3  County coefficient table (M4 full)") -> doc
+cnty_coefs <- fread(file.path(V2, "results", "tables",
+                                "table_county_coefs.csv"))
+cnty_m4 <- cnty_coefs[model == "M4",
+                       .(Term = term,
+                         β    = round(beta, 4),
+                         SE   = round(se, 4),
+                         HR   = round(hr, 3),
+                         `95% CI` = sprintf("%.3f, %.3f", hr.low, hr.high),
+                         p = signif(p.value, 3))]
+add_tbl(doc, cnty_m4,
+        caption = "Table 3.13 — County M4 fixed effects. Both main effects (climate & effort) are marginally significant; the interaction is at the boundary (p = 0.055).") -> doc
+
+add_h2(doc, "3-ter.4  Future-scenario hazard maps (prefecture)") -> doc
+add_fig(doc, "figures/main/fig_future_hazard_glmmTMB_prefecture.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.15 — Prefecture-level future hazard projected from the independently refit prefecture glmmTMB M4. 6 panels (SSP × year).") -> doc
+add_fig(doc, "figures/main/fig_future_hazard_xgboost_prefecture.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.16 — Prefecture XGBoost (CV-AUC = 0.799) future hazard projection.") -> doc
+
+add_h2(doc, "3-ter.5  Future-scenario hazard maps (county)") -> doc
+add_fig(doc, "figures/main/fig_future_hazard_glmmTMB_county.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.17 — County-level future hazard from the independently refit county glmmTMB M4.") -> doc
+add_fig(doc, "figures/main/fig_future_hazard_xgboost_county.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.18 — County XGBoost (CV-AUC = 0.797) future hazard.") -> doc
+
+# ============================================================
+# Section 3-quater: PLUG-IN (province → unit) projection (code/43)
+# ============================================================
+add_h1(doc, "3-quater  Province model → prefecture/county plug-in projection (code/43)") -> doc
+add_p(doc,
+"Alternative pathway: take the headline province M4 (Spec B, glmmTMB, AIC = 4196.14) and the province XGBoost (CV-AUC = 0.748), and apply those parameters directly to prefecture / county COVARIATE frames — WorldClim 10' climate and raw-records-based effort at unit resolution, with the same SSP perturbation. No refit at the finer scales: the model parameters come from the province scale, but each unit gets its OWN covariates. This is an honest second view: where would a province-trained model say the hazard is highest at unit resolution? It pairs with §3-ter to show that the substantive conclusion is robust to (i) refitting at the unit scale vs (ii) plugging unit covariates into the province-trained model.") -> doc
+
+add_fig(doc, "figures/main/fig_future_mapped_glmmTMB_prefecture.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.19 — Prefecture map from province-glmmTMB plug-in (plug-in pathway, not refit). Top 10 by SSP585/2050: Zhejiang 0.72, Jiangsu 0.65, Beijing 0.65, Hubei 0.54, Sichuan 0.41, Shanghai 0.39, Henan 0.36, Fujian 0.35, Tianjin 0.33, Hunan 0.33.") -> doc
+add_fig(doc, "figures/main/fig_future_mapped_xgboost_prefecture.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.20 — Prefecture map from province-XGBoost plug-in. The XGBoost plug-in is less dispersed because the model was trained on province-scale features (n=12,813) and is now extrapolating onto finer-scale unit covariates.") -> doc
+add_fig(doc, "figures/main/fig_future_mapped_glmmTMB_county.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.21 — County map from province-glmmTMB plug-in.") -> doc
+add_fig(doc, "figures/main/fig_future_mapped_xgboost_county.png",
+        width = 6.8, height = 4.3,
+        caption = "Figure 3.22 — County map from province-XGBoost plug-in.") -> doc
 add_h2(doc, "4.1 v1 grid M1–M5 coefficients (100 km)") -> doc
 gc_path <- file.path(V1, "results", "table_grid_model_coefficients.csv")
 if (file.exists(gc_path)) {
