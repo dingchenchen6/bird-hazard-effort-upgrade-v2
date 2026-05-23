@@ -345,13 +345,98 @@ climate_velocity, and mahalanobis_dist. Interaction-term hazard ratios
 > 100 km community grid) once that re-fit completes (`code/40` runner,
 > output to `results/tables/table_five_scale_coefficients.csv`).
 
-## 3.7 Multi-scale sensitivity (province + 100 km grid main; prefecture / county / 50 km grid as planned analyses)
+## 3.7 Independent prefecture + county refit (multi-scale validation)
+
+To extend the headline interaction below the province scale without
+inheriting v1's province-broadcast effort and climate artefacts, we
+built two unit-level risk sets with deliberate data hygiene
+(`code/42_prefecture_county_with_audit.R`):
+
+1. *Climate at unit polygon resolution.* WorldClim 2.1 10′ bio1,
+   bio4, bio12, bio15 and elevation are area-weighted (via
+   `exactextractr`) into each of the 371 prefecture (市) and 2,901
+   county (县) polygons, plus the province × year time-resolved
+   `temp_grad_z` from the v1 climate panel for the time-varying
+   dimension.
+2. *Effort from raw combined-dedup bird records.* We load the 7.48 M
+   combined-and-deduplicated bird-survey records (eBird + GBIF +
+   China-Birdwatch, 2002–2024 after coordinate filter) and
+   spatial-join each record to its enclosing prefecture and county
+   polygon (≥ 94 % mapping success); we then count
+   `n_records / n_observers / n_dates / n_visits` per (unit, year),
+   z-scored within year. This bypasses both the community-100 km
+   grid intermediate layer and the v1 province broadcast.
+3. *OOM-safe case-control sampling.* For each scale we retain all
+   event rows (475 at prefecture and county) and sample non-event
+   rows at 1:80 (prefecture, 38,393 rows) and 1:200 (county, 95,453
+   rows). The same SDM-thresholded (species × province) candidate
+   set used at province scale (7,764 candidates) is propagated to
+   the finer scales by joining province to the polygons inside it,
+   so the risk set semantics remain identical across scales.
+
+All four glmmTMB cloglog M-model variants (M0–M4) converged at every
+scale; rank-deficiency in the M1/M3/M4 effort term — present in an
+earlier broadcast-style draft of the effort allocation — was
+eliminated by sourcing effort directly from the raw records
+(within-year SD > 0 confirmed by the data-integrity audit log
+`results/diagnostics/audit_prefecture_county.txt`).
+
+The headline climate × effort interaction is positive and
+significant at province and prefecture and borderline at county
+(Table 1):
+
+| Scale       | n        | Events | M4 AIC   | Akaike w | HR    | 95 % CI       | p          |
+|-------------|---------:|-------:|---------:|---------:|------:|---------------|-----------:|
+| Province    | 12,813   | 512    | 4196.14  | > 0.99   | 1.288 | 1.179, 1.407  | 2.1 × 10⁻⁸ |
+| Prefecture  | 38,393   | 475    | 4696.33  | 0.91     | 1.163 | 1.046, 1.293  | 5.2 × 10⁻³ |
+| County      | 95,453   | 475    | 5180.82  | 0.56     | 1.114 | 0.998, 1.243  | 5.5 × 10⁻² |
+
+MAUP attenuation — the HR weakens from 1.288 to 1.114 as
+administrative grain becomes finer — is exactly the pattern expected
+when the underlying signal is genuinely about within-province
+variation in detection conditions: more units per province dilute
+the deviance carried by any single one, but the SIGN of the
+interaction is preserved at every scale. The Akaike weight on M4 is
+0.91 at prefecture and 0.56 at county; in both cases M4 remains the
+preferred model.
+
+Per-scale XGBoost classifiers fitted to the same risk sets achieve
+CV-AUC = 0.799 (prefecture) and 0.797 (county), substantially above
+the province-scale random-CV AUC of 0.742, reflecting the addition
+of unit-native bio1 / bio4 / bio12 / bio15 / elev features.
+
+## 3.8 Province model → prefecture / county plug-in projection
+
+The interpretation of the prefecture / county refit above is that
+*re-estimation* at each scale recovers the same qualitative finding.
+For comparison we also report a **plug-in** projection
+(`code/43_province_model_mapped_to_pref_county.R`) in which the
+province-scale parameters of M4 (and a separately trained
+province-scale XGBoost) are applied without re-estimation to
+prefecture and county *covariates*: each unit receives its own
+WorldClim climate baseline, its own raw-records effort baseline, and
+an SSP-perturbed `temp_grad_z` for 2030 / 2050 / 2080. The resulting
+maps therefore reflect what a model fit at province scale predicts
+for each finer-scale unit given its own conditions, rather than a
+new model. The top 10 prefectures under SSP585 / 2050 in the
+glmmTMB plug-in projection are Zhejiang (0.72), Jiangsu (0.65),
+Beijing (0.65), Hubei (0.54), Sichuan (0.41), Shanghai (0.39),
+Henan (0.36), Fujian (0.35), Tianjin (0.33) and Hunan (0.33) —
+consistent with the §3-bis province-scale prediction that elevated
+hazard is concentrated in eastern, high-effort provinces with strong
+temperature-gradient signal. The refit and plug-in pathways agree
+on the spatial pattern (Fig. 6); they differ in the relative
+expression of within-province heterogeneity, which is unavoidably
+larger in the refit pathway.
+
+## 3.9 Multi-scale sensitivity — 50 km grid and 100 km grid (planned)
 
 The pre-registered five-scale matrix (province / prefecture / county /
 50 km grid / 100 km grid) is implemented in `code/40` and `code/51`,
-but only the province + 100 km combinations have persisted result
-tables at the time of this draft. Prefecture- and county-resolved
-hazard models, plus the 50 km grid model, are to be populated by the
+but only the province + prefecture + county combinations have
+persisted result tables at the time of this draft. The 50 km grid
+model, plus a grid-native climate + effort 100 km grid refit, are to
+be populated by the
 re-run on grid-native climate (script 28) and grid-native effort
 (script 28b) — until then they are described as planned analyses,
 not as evidence. The 200 km grid MAUP elasticity (script 31) is
