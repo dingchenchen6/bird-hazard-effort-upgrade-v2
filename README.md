@@ -1,11 +1,11 @@
-# Bird Hazard × Effort Upgrade — v2 (GEB submission ready)
+# Bird Hazard × Effort Upgrade — v2 + v3 (GEB submission ready)
 
 **Scientific question / 科学问题**
 Across continental China, do climate-velocity exposure and survey effort
 interactively rather than additively drive the hazard of new bird
 distribution records, and is this interaction robust across spatial
-scales (province → 100 km grid → 50 km grid) and under CMIP6 future
-climate ensembles?
+scales (province → prefecture → county) and across alternative
+risk-set definitions?
 
 **目标 / Target journal:** *Global Ecology and Biogeography*
 
@@ -13,6 +13,18 @@ This directory is a **non-destructive re-build** of
 `../bird_hazard_model_effort_upgrade/` (v1). v1 is referenced read-only
 via symlinks in `data/raw/` and `data/spatial/`. All derived products,
 new analyses, refreshed figures and the rewritten manuscript land here.
+
+> **TWO PARALLEL TRACKS** (v2 + v3, files separated by suffix):
+>
+> | Track | Risk-set | Species | Events | Rows | Headline M4 HR (Spec B) |
+> |---|---|---:|---:|---:|---|
+> | **v2** | SDM threshold = 100 (tight, v1 published) | 333 | 512 | 12,813 | **1.288** (1.179, 1.407, p = 2.1×10⁻⁸) |
+> | **v3** | SDM threshold = 50 + event-override + 501 modelled species | 463 | 817 | 188,870 | **1.274** (1.198, 1.354, **p = 1.1×10⁻¹⁴**) |
+>
+> v2 = manuscript headline. v3 = sensitivity check (Results §3.10).
+> See [INDEX_v2_v3.md](INDEX_v2_v3.md) for the full file-level pairing.
+> See [manuscript/audit_report_v3.docx](manuscript/audit_report_v3.docx)
+> for a comprehensive 12-section review.
 
 ## Layout
 
