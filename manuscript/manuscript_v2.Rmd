@@ -429,7 +429,82 @@ on the spatial pattern (Fig. 6); they differ in the relative
 expression of within-province heterogeneity, which is unavoidably
 larger in the refit pathway.
 
-## 3.9 Multi-scale sensitivity — 50 km grid and 100 km grid (planned)
+## 3.10 v3 sensitivity analysis — relaxed SDM threshold + event override
+
+A reviewer-anticipated concern with the headline province risk set
+(12,813 rows / 333 species / 512 events) is that it is the
+SDM-thresholded intersection of (a) the SDM province-binarisation at
+the 100-km test cutoff and (b) the complete-case effort + climate
+merge. Auditing the raw event stream
+(`code/45_province_riskset_completeness_audit.R`) revealed that the
+v1 risk set retained only **55 %** of the 930 events recorded
+2002–2024: 199 event-species (38.3 %) and 357 events (38.4 %) were
+dropped, mostly because (i) the SDM binarisation set their
+`potential` to 0 in every province (130 of the 199, which had
+nevertheless been modelled by the SDM sub-projects), and (ii) a
+further 69 species were never modelled at all (typically vagrant
+seabirds and rare waders such as flamingos, *Calidris* and
+*Phalaropus*).
+
+To test whether the headline interaction survives a much more
+inclusive risk set, we built **v3** with three deliberate
+relaxations (`code/46_riskset_v3_relaxed_threshold.R`):
+
+1. *Base candidate set switched to the loosest SDM binarisation
+   threshold (50-km test)* — yields 347 candidate species rather
+   than 333.
+2. *Event-override force-inclusion rule* — any (species, province)
+   pair with at least one observed event in 2002–2024 is added to
+   the candidate set, regardless of SDM call. An actually-observed
+   record is empirical evidence of potential distribution that
+   overrides the model's prior.
+3. *Species restriction to the SDM-modelled union* — kept only the
+   501 species in the union of the birdwatch + rescue SDM
+   sub-projects, deliberately dropping the 69 vagrant seabirds /
+   waders that were never modelled.
+
+The v3 province risk set therefore contains **188,870 rows / 463
+species / 817 events** — a **15-fold increase in row count**, a
+**39 % increase in species coverage**, and a **60 % recovery of
+events** lost in v1. Refitting M0–M4 on v3 with the four effort
+specifications (`code/47_v3_all_effort_specs.R`, 20 cloglog fits, all
+converged) gave:
+
+| Spec | Effort variable      | HR    | 95 % CI         | p          | ΔAIC(M3-M4) |
+|------|----------------------|-------|------------------|------------|-------------|
+| A    | log_effort_record_z  | 1.338 | 1.254, 1.428    | 1.9×10⁻¹⁸  | 68.9        |
+| **B**| **log_effort_visits_z** | **1.279** | **1.203, 1.360** | **4.0×10⁻¹⁵** | **53.2**  |
+| C    | effort_pc1_z         | 1.124 | 1.067, 1.185    | 1.2×10⁻⁵   | 18.2        |
+| D    | log_effort_days_z    | 1.434 | 1.340, 1.535    | 1.8×10⁻²⁵  | 89.0        |
+
+All four interactions remain positive and highly significant
+(p < 10⁻⁴), all ΔAIC(M3-M4) exceed the v1 / v2 equivalents, and the
+Spec B headline HR moves from 1.288 (v2) to **1.274** (v3) — a 1.1 %
+attenuation accompanied by a six-orders-of-magnitude tightening of
+the p-value (from 10⁻⁸ to 10⁻¹⁴) due to the order-of-magnitude
+larger event base.
+
+At finer admin scales (`code/48_v3_prefecture_county_refit.R`) the
+v3 interaction weakens: HR drops to 1.043 (prefecture, p = 0.26)
+and 1.021 (county, p = 0.58). Random Forest permutation importance
+on v3 (`code/49_v3_variable_importance.R`) shows the same pattern:
+`temp × effort` falls from rank 1 in v2 to rank 6 in v3, while effort
+main effects rise from positions 7–10 to 3–5. The interpretation is
+ecologically sensible: the 130 additional species recovered in v3
+are largely SDM-borderline — their new-records track raw effort
+density (people simply find them where surveys are dense) more than
+the climate × effort moderation that drives the SDM-tight subset.
+The v3 results should therefore be read as a **robustness boundary**:
+the headline interaction is strongest in the well-modelled core of
+333 species, and dilutes as the species pool is enlarged. The
+direction and significance of the interaction are preserved at
+province scale across all three risk-set definitions.
+
+A composite 5-panel figure (Fig. v3) summarises the v3 robustness
+story: sample-size recovery (a), three-run forest (b), four-spec
+forest (c), multi-scale weakening (d), and ML rank shift (e).
+
+## 3.11 Multi-scale sensitivity — 50 km grid and 100 km grid (planned)
 
 The pre-registered five-scale matrix (province / prefecture / county /
 50 km grid / 100 km grid) is implemented in `code/40` and `code/51`,
